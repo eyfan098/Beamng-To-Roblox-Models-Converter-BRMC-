@@ -1,35 +1,39 @@
 const { exec } = require("child_process");
 
-function updateProgress(percent, text) {
+function updateProgress(percent, text){
   document.getElementById("progress").style.width = percent + "%";
   if(text) document.getElementById("status").innerText = text;
 }
 
-function convert() {
+function convert(){
   let file = document.getElementById("file").files[0];
-  if (!file) return alert("Select a BeamNG mod zip");
+  if(!file) return alert("Select a BeamNG mod ZIP");
 
-  // Reset progress
   updateProgress(0, "Starting conversion...");
 
-  // Step 1: Extracting ZIP
-  updateProgress(10, "Extracting files...");
-
-  // Run Python conversion
+  // Run Python converter
   const py = exec(`python convert.py "${file.path}"`);
 
-  // Read Python stdout for live updates
   py.stdout.on('data', (data) => {
-    if(data.includes("Extracting ZIP")) updateProgress(10, "Extracting files...");
-    else if(data.includes("Converting textures")) updateProgress(50, "Converting textures...");
-    else if(data.includes("Importing model")) updateProgress(70, "Importing model to Blender...");
-    else if(data.includes("Exporting FBX")) updateProgress(90, "Exporting FBX...");
+    data = data.toString();
+
+    // Update progress based on Python step messages
+    if(data.includes("EXTRACT_FILE")) {
+      let parts = data.split(":");
+      let index = parseInt(parts[1]);
+      let total = parseInt(parts[2]);
+      let percent = 10 + (index/total)*40; // Extracting files 10–50%
+      updateProgress(percent, `Extracting file ${index}/${total}`);
+    }
+    else if(data.includes("CONVERT_TEXTURE")) updateProgress(60, "Converting textures...");
+    else if(data.includes("IMPORT_MODEL")) updateProgress(80, "Importing model in Blender...");
+    else if(data.includes("EXPORT_FBX")) updateProgress(95, "Exporting FBX...");
     else if(data.includes("DONE")) updateProgress(100, "Finished! FBX exported.");
   });
 
-  py.stderr.on('data', (data) => {
-    console.error(data);
-    updateProgress(0, "Error occurred during conversion");
+  py.stderr.on('data', (err) => {
+    console.error(err.toString());
+    updateProgress(0, "Error occurred during conversion!");
   });
 
   py.on('close', (code) => {
