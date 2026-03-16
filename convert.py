@@ -8,32 +8,46 @@ extract = "temp"
 
 os.makedirs(extract, exist_ok=True)
 
-print("Step 1: Extracting ZIP...")
+# Extracting ZIP
 with zipfile.ZipFile(zip_path,'r') as z:
-    z.extractall(extract)
+    files = z.namelist()
+    total_files = len(files)
+    for i, f in enumerate(files, 1):
+        z.extract(f, extract)
+        print(f"EXTRACT_FILE:{i}:{total_files}", flush=True)  # per-file progress
 
+# Optional: convert DDS -> PNG textures here
+textures = []
+for root, dirs, files in os.walk(extract):
+    for f in files:
+        if f.lower().endswith(".dds"):
+            textures.append(os.path.join(root,f))
+
+for t in textures:
+    print("CONVERT_TEXTURE", flush=True)
+    # conversion code if needed
+
+# Find model
 model = None
 for root, dirs, files in os.walk(extract):
     for f in files:
         if f.endswith(".dae") or f.endswith(".obj"):
             model = os.path.join(root, f)
 
-bpy.ops.wm.read_factory_settings(use_empty=True)
+# Blender import
+if model:
+    print("IMPORT_MODEL", flush=True)
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    if model.endswith(".dae"):
+        bpy.ops.wm.collada_import(filepath=model)
+    elif model.endswith(".obj"):
+        bpy.ops.import_scene.obj(filepath=model)
 
-if model.endswith(".dae"):
-    print("Step 2: Importing model...")
-    bpy.ops.wm.collada_import(filepath=model)
-elif model.endswith(".obj"):
-    print("Step 2: Importing model...")
-    bpy.ops.import_scene.obj(filepath=model)
-
-print("Step 3: Converting textures...")
-# Add texture conversion here if needed
-
-print("Step 4: Exporting FBX...")
+# Export FBX
+print("EXPORT_FBX", flush=True)
 bpy.ops.export_scene.fbx(
     filepath="model.fbx",
     embed_textures=True
 )
 
-print("DONE")
+print("DONE", flush=True)
